@@ -1,0 +1,9 @@
+# syntax=docker/dockerfile:1
+# 这个文件启用Docker Buildkit的高级功能，包括mount缓存
+
+# 确保使用BuildKit构建器
+# 使用方法: DOCKER_BUILDKIT=1 docker build --progress=plain -t script-server:latest .
+
+# 或者创建并使用buildx构建器:
+# docker buildx create --name mybuilder --use
+# docker buildx build --progress=plain -t script-server:latest .

@@ -1,0 +1,10 @@
+# 构建时需要排除的文件和目录
+target/
+.git/
+.idea/
+.vscode/
+*.log
+*.tmp
+node_modules/
+.DS_Store
+Thumbs.db

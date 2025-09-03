@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>脚本执行服务</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>GraalVM 脚本执行服务</h1>
+        
+        <div class="row">
+            <div class="col">
+                <div class="form-group">
+                    <label for="language">脚本语言:</label>
+                    <select id="language">
+                        <option value="">加载中...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="entryFunction">入口函数名 (可选):</label>
+                    <input type="text" id="entryFunction" placeholder="例如: main, execute">
+                </div>
+                
+                <div class="form-group">
+                    <label for="args">函数参数 (JSON格式, 可选):</label>
+                    <input type="text" id="args" placeholder='例如: ["arg1", 123, true]'>
+                </div>
+            </div>
+            
+            <div class="col">
+                <div class="permissions">
+                    <h3>权限配置:</h3>
+                    <div class="permission-item">
+                        <input type="checkbox" id="allowIO"> 允许IO操作
+                    </div>
+                    <div class="permission-item">
+                        <input type="checkbox" id="allowNetwork"> 允许网络访问
+                    </div>
+                    <div class="permission-item">
+                        <input type="checkbox" id="allowHostAccess"> 允许主机访问
+                    </div>
+                    <div class="permission-item">
+                        <input type="checkbox" id="allowFileAccess"> 允许文件访问
+                    </div>
+                    <div class="permission-item">
+                        <input type="checkbox" id="allowCreateThread"> 允许创建线程
+                    </div>
+                    <div class="permission-item">
+                        <input type="checkbox" id="allowEnvironmentAccess"> 允许环境变量访问
+                    </div>
+                    <div class="permission-item">
+                        <label>最大执行时间 (毫秒):</label>
+                        <input type="number" id="maxExecutionTime" value="30000">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="script">脚本内容:</label>
+            <textarea id="script" placeholder="在这里输入你的脚本代码..."></textarea>
+        </div>
+        
+        <div>
+            <button class="btn" onclick="executeScript()">执行脚本</button>
+            <button class="btn" onclick="connectWebSocket()">连接WebSocket</button>
+            <button class="btn" onclick="disconnectWebSocket()">断开WebSocket</button>
+            <button class="btn" onclick="clearOutput()">清空输出</button>
+        </div>
+        
+        <div class="status" id="wsStatus">WebSocket: 未连接</div>
+        
+        <div class="examples">
+            <h3>示例脚本:</h3>
+            <button class="btn example-btn" onclick="loadExample('js-simple')">JS - 简单计算</button>
+            <button class="btn example-btn" onclick="loadExample('js-function')">JS - 函数调用</button>
+            <button class="btn example-btn" onclick="loadExample('js-async')">JS - 延时执行</button>
+            <button class="btn example-btn" onclick="loadExample('js-recursive')">JS - 递归处理</button>
+            <button class="btn example-btn" onclick="loadExample('python-simple')">Python - Hello World</button>
+            <button class="btn example-btn" onclick="loadExample('python-sleep')">Python - 间隔输出</button>
+            <button class="btn example-btn" onclick="loadExample('python-http')">Python - HTTP 请求</button>
+        </div>
+        
+        <div class="output" id="output">执行结果将在这里显示...</div>
+    </div>
+    
+    <script src="js/app.js"></script>
+</body>
+</html>

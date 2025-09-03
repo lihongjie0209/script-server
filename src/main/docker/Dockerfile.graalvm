@@ -1,0 +1,59 @@
+####
+# Multi-stage Dockerfile for building with GraalVM support
+# This Dockerfile includes all required language runtimes for the script server
+#
+# Build with:
+# docker build -f src/main/docker/Dockerfile.graalvm -t script-server:latest .
+#
+# Run with:
+# docker run -i --rm -p 8080:8080 script-server:latest
+#
+####
+
+# Build stage with GraalVM
+FROM ghcr.io/graalvm/graalvm-community:21 AS builder
+
+# Install required tools
+RUN microdnf install -y wget unzip
+
+# Install language runtimes
+RUN gu install js python ruby
+
+# Set up Maven
+RUN wget https://archive.apache.org/dist/maven/maven-3/3.9.5/binaries/apache-maven-3.9.5-bin.tar.gz && \
+    tar -xzf apache-maven-3.9.5-bin.tar.gz -C /opt && \
+    ln -s /opt/apache-maven-3.9.5/bin/mvn /usr/local/bin/mvn
+
+# Copy source code
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+
+# Build the application
+RUN mvn package -Dnative -DskipTests
+
+# Runtime stage
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.6
+
+# Install GraalVM runtime with all language support
+RUN microdnf install -y curl tar gzip && \
+    curl -L https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-21.0.1/graalvm-community-jdk-21.0.1_linux-x64_bin.tar.gz | tar -xz -C /opt && \
+    mv /opt/graalvm-community-openjdk-21.0.1* /opt/graalvm && \
+    /opt/graalvm/bin/gu install js python ruby && \
+    microdnf clean all
+
+ENV JAVA_HOME=/opt/graalvm
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+WORKDIR /work/
+RUN chown 1001 /work && \
+    chmod "g+rwX" /work && \
+    chown 1001:root /work
+
+# Copy the native executable
+COPY --from=builder --chown=1001:root --chmod=0755 /app/target/*-runner /work/application
+
+EXPOSE 8080
+USER 1001
+
+ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]
