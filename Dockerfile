@@ -44,8 +44,7 @@ RUN --mount=type=cache,target=/root/.m2 \
 FROM ghcr.io/graalvm/graalvm-community:21
 
 # 安装语言运行时
-RUN microdnf clean all && microdnf --refresh && \
-    microdnf update -y && \
+RUN microdnf update -y && \
     microdnf install -y python3 python3-pip curl && \
     microdnf clean all && \
     rm -rf /var/cache/yum
