@@ -7,10 +7,10 @@
 # Build stage - 使用GraalVM进行构建
 FROM ghcr.io/graalvm/graalvm-community:21 AS builder
 
-# 安装Maven（使用缓存加速）
-RUN --mount=type=cache,target=/var/cache/microdnf \
-    --mount=type=cache,target=/var/lib/rpm \
-    microdnf install -y wget tar gzip || true
+# 安装Maven
+RUN microdnf update -y && \
+    microdnf install -y wget tar gzip && \
+    microdnf clean all
 
 # 下载并安装Maven（使用缓存加速）
 RUN --mount=type=cache,target=/tmp/maven-cache \
@@ -43,11 +43,11 @@ RUN --mount=type=cache,target=/root/.m2 \
 # Runtime stage - 使用GraalVM运行时
 FROM ghcr.io/graalvm/graalvm-community:21
 
-# 安装语言运行时（使用缓存加速）
-RUN --mount=type=cache,target=/var/cache/microdnf \
-    --mount=type=cache,target=/var/lib/rpm \
-    microdnf install -y python3 && \
-    microdnf clean all
+# 安装语言运行时
+RUN microdnf update -y && \
+    microdnf install -y python3 python3-pip curl && \
+    microdnf clean all && \
+    rm -rf /var/cache/yum
 
 # 设置工作目录
 WORKDIR /app
