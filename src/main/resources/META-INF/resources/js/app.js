@@ -95,8 +95,22 @@ function connectWebSocket() {
         return;
     }
     
+    // 构建WebSocket URL，考虑反向代理情况
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/script`;
+    const host = window.location.host;
+    const pathname = window.location.pathname;
+    
+    // 如果当前路径不是根路径，说明可能在子路径下（反向代理情况）
+    let basePath = pathname.endsWith('/') ? pathname : pathname + '/';
+    if (basePath === '/') {
+        basePath = '';
+    } else {
+        // 移除末尾的斜杠
+        basePath = basePath.slice(0, -1);
+    }
+    
+    const wsUrl = `${protocol}//${host}${basePath}/ws/script`;
+    console.log('连接WebSocket:', wsUrl);
     
     ws = new WebSocket(wsUrl);
     
@@ -153,7 +167,19 @@ function executeViaHTTP(request) {
     clearOutput();
     appendOutput('通过HTTP API执行脚本...');
     
-    fetch('/api/script/execute', {
+    // 获取当前基础路径，处理反向代理情况
+    const pathname = window.location.pathname;
+    let basePath = pathname.endsWith('/') ? pathname : pathname + '/';
+    if (basePath === '/') {
+        basePath = '';
+    } else {
+        basePath = basePath.slice(0, -1);
+    }
+    
+    const apiUrl = `${basePath}/api/script/execute`;
+    console.log('调用API:', apiUrl);
+    
+    fetch(apiUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -213,7 +239,19 @@ function clearOutput() {
 // 从服务器获取支持的语言列表
 async function loadSupportedLanguages() {
     try {
-        const response = await fetch('/api/script/languages');
+        // 获取当前基础路径，处理反向代理情况
+        const pathname = window.location.pathname;
+        let basePath = pathname.endsWith('/') ? pathname : pathname + '/';
+        if (basePath === '/') {
+            basePath = '';
+        } else {
+            basePath = basePath.slice(0, -1);
+        }
+        
+        const apiUrl = `${basePath}/api/script/languages`;
+        console.log('获取语言列表:', apiUrl);
+        
+        const response = await fetch(apiUrl);
         const languages = await response.json();
         
         const languageSelect = document.getElementById('language');
