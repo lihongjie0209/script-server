@@ -8,8 +8,7 @@
 FROM ghcr.io/graalvm/graalvm-community:21 AS builder
 
 # 安装Maven
-RUN microdnf update -y && \
-    microdnf install -y wget tar gzip && \
+RUN microdnf install -y wget tar gzip && \
     microdnf clean all
 
 # 下载并安装Maven（使用缓存加速）
@@ -44,8 +43,7 @@ RUN --mount=type=cache,target=/root/.m2 \
 FROM ghcr.io/graalvm/graalvm-community:21
 
 # 安装语言运行时
-RUN microdnf update -y && \
-    microdnf install -y python3 python3-pip curl && \
+RUN microdnf install -y python3 python3-pip curl && \
     microdnf clean all && \
     rm -rf /var/cache/yum
 
