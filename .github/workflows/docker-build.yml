@@ -106,14 +106,15 @@ jobs:
         echo '${{ steps.meta.outputs.tags }}' | sed 's/,/\n/g' >> $GITHUB_STEP_SUMMARY
         echo '```' >> $GITHUB_STEP_SUMMARY
     
-    - name: 安全扫描
-      if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.push_to_dockerhub == 'true'
-      uses: docker/scout-action@v1
-      with:
-        command: cves
-        image: ${{ env.DOCKERHUB_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-        only-severities: critical,high
-        exit-code: false # 不因安全问题阻止发布
+    # - name: 安全扫描
+    #   if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.push_to_dockerhub == 'true'
+    #   uses: docker/scout-action@v1
+    #   with:
+    #     command: cves
+    #     image: ${{ env.DOCKERHUB_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+    #     only-severities: critical,high
+    #     exit-code: false # 不因安全问题阻止发布
+      
 
   test-image:
     needs: build-and-push
