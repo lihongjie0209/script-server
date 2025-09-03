@@ -1,5 +1,31 @@
 let ws = null;
 
+// 获取应用的基础路径，处理反向代理情况
+function getBasePath() {
+    const pathname = window.location.pathname;
+    
+    // 如果路径以 index.html 结尾，去掉它
+    let basePath = pathname;
+    if (basePath.endsWith('/index.html')) {
+        basePath = basePath.slice(0, -11); // 去掉 '/index.html'
+    } else if (basePath.endsWith('index.html')) {
+        basePath = basePath.slice(0, -10); // 去掉 'index.html'
+    }
+    
+    // 确保基础路径格式正确
+    if (basePath && !basePath.endsWith('/')) {
+        basePath += '/';
+    }
+    
+    // 根路径情况
+    if (basePath === '/' || basePath === '') {
+        return '';
+    }
+    
+    // 去掉末尾斜杠用于拼接
+    return basePath.slice(0, -1);
+}
+
 const examples = {
     'js-simple': {
         language: 'js',
@@ -91,74 +117,118 @@ function loadExample(exampleKey) {
 }
 
 function connectWebSocket() {
+    // 如果已经连接，直接返回
     if (ws && ws.readyState === WebSocket.OPEN) {
+        updateStatus('已连接', 'connected');
         return;
     }
+    
+    // 如果正在连接中，不要重复连接
+    if (ws && ws.readyState === WebSocket.CONNECTING) {
+        updateStatus('正在连接...', 'connecting');
+        return;
+    }
+    
+    // 清理现有连接
+    if (ws) {
+        ws.close();
+        ws = null;
+    }
+    
+    updateStatus('正在连接...', 'connecting');
     
     // 构建WebSocket URL，考虑反向代理情况
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    const pathname = window.location.pathname;
-    
-    // 如果当前路径不是根路径，说明可能在子路径下（反向代理情况）
-    let basePath = pathname.endsWith('/') ? pathname : pathname + '/';
-    if (basePath === '/') {
-        basePath = '';
-    } else {
-        // 移除末尾的斜杠
-        basePath = basePath.slice(0, -1);
-    }
+    const basePath = getBasePath();
     
     const wsUrl = `${protocol}//${host}${basePath}/ws/script`;
     console.log('连接WebSocket:', wsUrl);
     
-    ws = new WebSocket(wsUrl);
-    
-    ws.onopen = function() {
-        updateStatus('连接成功', 'connected');
-    };
-    
-    ws.onmessage = function(event) {
-        const message = JSON.parse(event.data);
-        appendOutput(`[${message.type.toUpperCase()}] ${message.message}`);
-        if (message.data) {
-            appendOutput(JSON.stringify(message.data, null, 2));
-        }
-    };
-    
-    ws.onclose = function() {
-        updateStatus('连接已断开', 'disconnected');
-    };
-    
-    ws.onerror = function(error) {
-        updateStatus('连接错误', 'disconnected');
-        appendOutput('WebSocket错误: ' + error);
-    };
+    try {
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = function() {
+            updateStatus('连接成功', 'connected');
+            console.log('WebSocket connected successfully');
+        };
+        
+        ws.onmessage = function(event) {
+            try {
+                const message = JSON.parse(event.data);
+                appendOutput(`[${message.type.toUpperCase()}] ${message.message}`);
+                if (message.data) {
+                    appendOutput(JSON.stringify(message.data, null, 2));
+                }
+            } catch (e) {
+                appendOutput('WebSocket消息解析错误: ' + e.message);
+            }
+        };
+        
+        ws.onclose = function(event) {
+            if (!ws._isManualClose) {
+                updateStatus('连接已断开', 'disconnected');
+                console.log('WebSocket connection closed:', event.code, event.reason);
+            }
+            ws = null;
+        };
+        
+        ws.onerror = function(error) {
+            updateStatus('连接错误', 'disconnected');
+            appendOutput('WebSocket错误: ' + error);
+            console.error('WebSocket error:', error);
+        };
+        
+    } catch (error) {
+        updateStatus('连接失败', 'disconnected');
+        appendOutput('WebSocket连接失败: ' + error.message);
+        console.error('Failed to create WebSocket:', error);
+    }
 }
 
 function disconnectWebSocket() {
     if (ws) {
+        // 设置一个标记，防止onclose事件被触发时显示意外的状态
+        ws._isManualClose = true;
         ws.close();
         ws = null;
+        updateStatus('手动断开连接', 'disconnected');
+        console.log('WebSocket manually disconnected');
     }
 }
 
 function updateStatus(message, className) {
     const statusEl = document.getElementById('wsStatus');
-    statusEl.textContent = 'WebSocket: ' + message;
-    statusEl.className = 'status ' + className;
+    if (statusEl) {
+        statusEl.textContent = 'WebSocket: ' + message;
+        statusEl.className = 'status ' + className;
+        
+        // 记录状态变化
+        console.log('WebSocket status updated:', message, className);
+    }
 }
 
 function executeScript() {
     const request = buildRequest();
+    if (!request) {
+        return; // buildRequest返回null表示参数有误
+    }
     
     if (ws && ws.readyState === WebSocket.OPEN) {
         // 使用WebSocket执行
         clearOutput();
         appendOutput('通过WebSocket执行脚本...');
-        ws.send(JSON.stringify(request));
+        console.log('Executing script via WebSocket:', request);
+        
+        try {
+            ws.send(JSON.stringify(request));
+        } catch (error) {
+            appendOutput('WebSocket发送失败: ' + error.message);
+            console.error('Failed to send via WebSocket:', error);
+        }
     } else {
         // 使用HTTP API执行
+        appendOutput('WebSocket未连接，切换到HTTP API执行...');
         executeViaHTTP(request);
     }
 }
@@ -168,14 +238,7 @@ function executeViaHTTP(request) {
     appendOutput('通过HTTP API执行脚本...');
     
     // 获取当前基础路径，处理反向代理情况
-    const pathname = window.location.pathname;
-    let basePath = pathname.endsWith('/') ? pathname : pathname + '/';
-    if (basePath === '/') {
-        basePath = '';
-    } else {
-        basePath = basePath.slice(0, -1);
-    }
-    
+    const basePath = getBasePath();
     const apiUrl = `${basePath}/api/script/execute`;
     console.log('调用API:', apiUrl);
     
@@ -240,14 +303,7 @@ function clearOutput() {
 async function loadSupportedLanguages() {
     try {
         // 获取当前基础路径，处理反向代理情况
-        const pathname = window.location.pathname;
-        let basePath = pathname.endsWith('/') ? pathname : pathname + '/';
-        if (basePath === '/') {
-            basePath = '';
-        } else {
-            basePath = basePath.slice(0, -1);
-        }
-        
+        const basePath = getBasePath();
         const apiUrl = `${basePath}/api/script/languages`;
         console.log('获取语言列表:', apiUrl);
         

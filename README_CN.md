@@ -11,6 +11,7 @@
 - 🐳 **Docker 支持**: 完整的 Docker 镜像支持，包含 GraalVM 和脚本运行时
 - 🌐 **Web 界面**: 提供友好的前端页面用于脚本测试和调试
 - ⚡ **高性能**: 基于 Quarkus 和 GraalVM Native Image 的高性能实现
+- 🔄 **反向代理支持**: 完整支持反向代理部署，自动处理URL路径问题
 
 ## 快速开始
 
@@ -20,21 +21,35 @@
 - Maven 3.8+
 - Docker (可选)
 - GraalVM 21+ (用于 Native 构建)
+- Python 3.7+ (用于测试脚本)
 
 ### 本地运行
 
-1. **克隆项目**
+### 使用测试脚本（推荐）
+
 ```bash
+# 克隆项目
 git clone <repository-url>
 cd script-server
+
+# 安装Python依赖
+pip install -r requirements.txt
+
+# 运行完整构建和测试
+python test.py
+
+# 或使用快速构建脚本
+python build_fast.py
 ```
 
-2. **开发模式运行**
+### 开发模式
+
 ```bash
 ./mvnw quarkus:dev
 ```
 
-3. **访问应用**
+### 访问应用
+
 - Web 界面: http://localhost:8080
 - API 文档: http://localhost:8080/q/swagger-ui
 - 健康检查: http://localhost:8080/api/script/health
@@ -192,22 +207,105 @@ puts "求和结果: #{result}"
 result
 ```
 
-## 安全考虑
+## 🌐 反向代理支持
+
+应用完全支持在反向代理后部署：
+
+- **自动路径检测**: 处理子路径部署情况
+- **头部转发**: 支持 `X-Forwarded-Host`、`X-Forwarded-Proto` 和 `X-Forwarded-Prefix` 头部
+- **WebSocket 兼容**: WebSocket 连接在代理后正常工作
+- **相对重定向**: 所有重定向使用相对路径避免代理问题
+
+### 反向代理配置
+
+```properties
+# 启用代理支持
+quarkus.http.proxy.proxy-address-forwarding=true
+quarkus.http.proxy.allow-forwarded=true
+quarkus.http.proxy.enable-forwarded-host=true
+quarkus.http.proxy.enable-forwarded-prefix=true
+quarkus.http.proxy.trusted-proxies=*
+```
+
+### 常见反向代理配置示例
+
+#### Nginx 配置
+```nginx
+location /script-server/ {
+    proxy_pass http://localhost:8080/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Prefix /script-server;
+    proxy_set_header X-Original-Host $host;  # 自定义原始主机头
+    
+    # WebSocket 支持
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}
+```
+
+#### Cloud Run / Google Cloud Platform
+```nginx
+# Google Cloud Run会自动设置X-Forwarded-*头部
+# 额外设置X-Original-Host用于域名识别
+proxy_set_header X-Original-Host script-server-501458390533.asia-east2.run.app;
+```
+
+#### Apache 配置
+```apache
+ProxyPreserveHost On
+ProxyPass /script-server/ http://localhost:8080/
+ProxyPassReverse /script-server/ http://localhost:8080/
+
+# 设置代理头部
+Header always set X-Forwarded-Prefix "/script-server"
+Header always set X-Original-Host "your-domain.com"
+```
+
+## 🧪 测试
+
+项目包含完整的测试覆盖：
+
+- **47个单元测试**: 完整覆盖核心功能
+- **安全测试**: 权限和沙盒验证
+- **集成测试**: REST API 和 WebSocket 测试
+- **自动化测试**: 基于Python的端到端测试
+
+```bash
+# 运行单元测试
+./mvnw test
+
+# 运行完整集成测试
+python test.py
+```
+
+## 📊 性能表现
+
+- **快速启动**: Native 构建毫秒级启动
+- **低内存占用**: GraalVM 优化的内存使用
+- **并发执行**: 支持多个脚本并发执行
+- **资源限制**: 可配置的内存和执行时间限制
+
+## 🔒 安全考虑
 
 - 默认使用严格的沙盒模式，禁用所有危险操作
 - 支持细粒度的权限控制
 - 设置执行时间和内存限制
 - 建议在生产环境中使用容器隔离
 
-## 技术栈
+## 🛠️ 技术栈
 
-- **Quarkus**: 云原生 Java 框架
-- **GraalVM**: 高性能多语言虚拟机
-- **WebSocket**: 实时通信支持
-- **Docker**: 容器化部署
-- **RESTEasy**: REST API 实现
+- **框架**: Quarkus 3.26.1
+- **运行时**: GraalVM Community 21
+- **语言支持**: JavaScript (GraalJS 24.1.0)、Python (GraalPy)、Ruby
+- **构建工具**: Maven + Docker BuildKit
+- **测试框架**: JUnit 5 + Python 自动化
+- **通信协议**: REST API + WebSocket
 
-## 贡献指南
+## 🤝 贡献指南
 
 1. Fork 项目
 2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
@@ -215,12 +313,27 @@ result
 4. 推送分支 (`git push origin feature/AmazingFeature`)
 5. 打开 Pull Request
 
-## 许可证
+### 开发指南
+
+- 使用 `python test.py` 进行所有测试
+- 新功能必须包含测试用例
+- 遵循 Docker 优先的开发方式
+- 保持安全最佳实践
+
+## 📄 许可证
 
 本项目采用 MIT 许可证。查看 [LICENSE](LICENSE) 文件了解更多信息。
 
-## 联系方式
+## 📞 联系方式
 
 - 项目主页: [GitHub Repository]
 - 问题反馈: [GitHub Issues]
 - 邮箱: your-email@example.com
+
+---
+
+## 相关文档
+
+- [English Documentation](README.md)
+- [使用指南](USAGE.md)
+- [测试报告](TEST_REPORT.md)

@@ -57,15 +57,24 @@ public class ScriptExecutionWebSocket {
             
             // 处理执行结果
             future.whenComplete((result, throwable) -> {
-                if (throwable != null) {
-                    sendMessage(session, createMessage("error", "Execution failed: " + throwable.getMessage(), null));
-                } else {
-                    sendMessage(session, createMessage("result", "Script execution completed", result));
+                try {
+                    if (throwable != null) {
+                        sendMessage(session, createMessage("error", "Execution failed: " + throwable.getMessage(), null));
+                    } else {
+                        sendMessage(session, createMessage("result", "Script execution completed", result));
+                    }
+                    
+                    // 发送完成信号，告知客户端可以进行下一次执行
+                    sendMessage(session, createMessage("ready", "Ready for next execution", null));
+                } catch (Exception e) {
+                    sendMessage(session, createMessage("error", "Failed to send result: " + e.getMessage(), null));
                 }
             });
             
         } catch (Exception e) {
             sendMessage(session, createMessage("error", "Invalid request: " + e.getMessage(), null));
+            // 即使出错也发送ready信号
+            sendMessage(session, createMessage("ready", "Ready for next execution", null));
         }
     }
     
